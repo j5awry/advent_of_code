@@ -1,4 +1,6 @@
 import re
+import json
+
 
 # Part 1
 def traveler_info(chunked_text: str) -> list:
@@ -8,7 +10,8 @@ def traveler_info(chunked_text: str) -> list:
     create a list of traveler dicts
     """
     travelers = []
-    for chunk in chunked_text:
+    chunks = [string.replace("\n", " ") for string in chunked_text]
+    for chunk in chunks:
         # make a list of the text
         split_chunk = chunk.split()
         traveler_info = {}
@@ -16,7 +19,9 @@ def traveler_info(chunked_text: str) -> list:
             split_item = item.split(":")
             traveler_info[split_item[0]] = split_item[1]
         travelers.append(traveler_info)
+    # print(len(travelers))
     return travelers
+
 
 def validate_info(traveler_info: dict, required: list) -> list:
     """
@@ -55,43 +60,39 @@ def main():
 # Validators -- all funcs return Bool
 # names of funcs are regular
 
+
+def valid_year(year, lowest, highest):
+    return lowest <= year <= highest
+
+
 def valid_byr(byr):
-    if int(byr) < 1920:
-        return False
-    if int(byr) > 2002:
-        return False
-    return True
+    return valid_year(int(byr), 1920, 2020)
 
 
 def valid_iyr(iyr):
-    if int(iyr) < 2010 or int(iyr) > 2020:
-        return False
-    return True
+    return valid_year(int(iyr), 2010, 2020)
 
 
 def valid_eyr(eyr):
-    if int(eyr) < 2020 or int(eyr) > 2030:
-        return False
-    return True
+    return valid_year(int(eyr), 2020, 2030)
 
 
 def valid_hgt(hgt):
     # will be in format \d+\w+
-    try:
-        split = re.findall(r'(\d+)(in|cm)', hgt)[0]
-    except IndexError:
+    match = re.match(r'^(?P<measure>\d+)(?P<type>in|cm)$', hgt)
+    if not match:
         return False
-    if split[1] == "cm":
-        if int(split[0]) < 150 or int(split[0]) > 193:
-            return False
-    if split[1] == "in":
-        if int(split[0]) < 59 or int(split[0]) > 76:
-            return False
-    return True
+    measure = int(match.groupdict()['measure'])
+    scale = match.groupdict()['type']
+    if scale == "cm":
+        return 150 <= measure <= 193
+    elif scale == "in":
+        return 59 <= measure <= 76
+    return False
 
 
 def valid_hcl(hcl):
-    matched = re.match(r"#[0-9a-f]{5}", hcl)
+    matched = re.match(r"#[0-9a-f]{6}", hcl)
     if not matched:
         return False
     return True
@@ -106,7 +107,7 @@ def valid_ecl(ecl, values=None):
 
 
 def valid_pid(pass_id):
-    matched = re.match(r"[\d]{9}", pass_id)
+    matched = re.match(r"[0-9]{9}", pass_id)
     if not matched:
         return False
     return True
@@ -126,7 +127,7 @@ def validate_info(traveler_info: dict, required: list) -> list:
         try:
             is_valid = req[1](traveler_info[req[0]])
             if not is_valid:
-                print(f"INVALID VALUE for {req[0]}")
+                # print(f"INVALID VALUE for {req[0]}")
                 invalid.append((req[0], traveler_info[req[0]]))
         except Exception as e:
             print(f"EXCEPTION RAISED on {req[0]}")
@@ -135,7 +136,7 @@ def validate_info(traveler_info: dict, required: list) -> list:
     return invalid
 
 
-def main():
+def check_travelers():
     with open("input.txt", "r") as fopen:
         input_lines = fopen.read()
 
@@ -143,7 +144,6 @@ def main():
 
     all_travelers = traveler_info(chunked)
 
-    valid_passports = 0
     required_fields = [
         ("byr", valid_byr),
         ("iyr", valid_iyr),
@@ -153,13 +153,21 @@ def main():
         ("ecl", valid_ecl),
         ("pid", valid_pid)
     ]
+    invalid_passports = []
+    valid_passports = []
     for traveler in all_travelers:
         print("*" * 32)
         print("New traveler!")
         print(traveler)
         missing = validate_info(traveler, required_fields)
         if missing:
+            invalid_passports.append(traveler)
             print(f"invalid values for the following: {missing}")
-        if not missing:
-            valid_passports += 1
-    return valid_passports
+        else:
+            valid_passports.append(traveler)
+        #print(f"Current valid passports = {valid_passports}")
+    return {"valid": valid_passports, "invalid": invalid_passports}
+
+
+if __name__ == "__main__":
+    print(len(check_travelers()['valid']))
